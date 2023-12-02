@@ -1,108 +1,219 @@
-import 'package:flutter/material.dart';
-import 'package:smart_glasses_flutter/src/app_theme.dart';
-import 'package:smart_glasses_flutter/src/bottom_navigation_view/bottom_bar_view.dart';
-import 'package:smart_glasses_flutter/src/models/tabIcon_data.dart';
-import 'package:smart_glasses_flutter/src/my_diary/my_diary_screen.dart';
+import 'dart:async';
 
-class FitnessAppHomeScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:smart_glasses_flutter/src/screens/live_feed_screen.dart';
+
+import '../models/LocationData.dart';
+
+class SmartGlassesAppHomeScreen extends StatefulWidget {
   @override
-  _FitnessAppHomeScreenState createState() => _FitnessAppHomeScreenState();
+  _SmartGlassesAppHomeScreenState createState() =>
+      _SmartGlassesAppHomeScreenState();
 }
 
-class _FitnessAppHomeScreenState extends State<FitnessAppHomeScreen>
+class _SmartGlassesAppHomeScreenState extends State<SmartGlassesAppHomeScreen>
     with TickerProviderStateMixin {
-  AnimationController? animationController;
-
-  List<TabIconData> tabIconsList = TabIconData.tabIconsList;
-
-  Widget tabBody = Container(
-    color: AppTheme.background,
-  );
+  MapController mapController = MapController();
+  late StreamSubscription<LocationData> locationSubscription; // Add this line
+  MqttClient client =
+      MqttClient('broker.emqx.io', '123'); // Replace with your MQT
+  LatLng currentMarkerPosition = LatLng(51.509364, -0.128928);
+  String currentAddress = ''; // Add this line
+  bool alwaysLookAtRedDot = false;
 
   @override
   void initState() {
-    tabIconsList.forEach((TabIconData tab) {
-      tab.isSelected = false;
-    });
-    tabIconsList[0].isSelected = true;
-
-    animationController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
-    tabBody = MyDiaryScreen(animationController: animationController);
     super.initState();
+    locationSubscription = locationStream.listen((LocationData locationData) {
+      updateMap(locationData); // Update the map when a new location is received
+    });
+    // Connect to the MQTT server and subscribe to a topic
+    _connectToMqtt();
+  }
+
+  void _connectToMqtt() async {
+    client.logging(on: true);
+    client.keepAlivePeriod = 30;
+    client.onConnected = _onMqttConnected;
+    client.onDisconnected = _onMqttDisconnected;
+
+    final MqttConnectMessage connectMessage =
+        MqttConnectMessage().withClientIdentifier('your_client_id');
+
+    client.connectionMessage = connectMessage;
+
+    try {
+      await client.connect('your_username', 'your_password');
+    } catch (e) {
+      print('Exception: $e');
+    }
+  }
+
+  void _onMqttConnected() {
+    print('Connected to MQTT');
+    client.subscribe('your_topic', MqttQos.atMostOnce);
+    client.updates?.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+      final String payload =
+          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+
+      // Parse the payload to get location data
+      LocationData locationData = LocationData.fromPayload(payload);
+      updateMap(locationData);
+    });
+  }
+
+  void _onMqttDisconnected() {
+    print('Disconnected from MQTT');
   }
 
   @override
   void dispose() {
-    animationController?.dispose();
+    locationSubscription
+        .cancel(); // Cancel the subscription to avoid memory leaks
     super.dispose();
+  }
+
+  // Replace this method with your actual stream source
+  Stream<LocationData> get locationStream {
+    // You need to replace this with your actual location stream source
+    // For example, you can use a package like location or geolocator
+    // Here, we're simulating a stream with periodic updates for demonstration purposes
+    return Stream<LocationData>.periodic(
+      const Duration(seconds: 8),
+      (count) => LocationData(51.509364 + count * 0.001, -0.128928),
+    );
+  }
+
+  void updateMap(LocationData locationData) async {
+    setState(() {
+      currentMarkerPosition =
+          LatLng(locationData.latitude, locationData.longitude);
+      placemarkFromCoordinates(locationData.latitude!, locationData.longitude!)
+          .then((List<Placemark> placemarks) {
+        if (placemarks.isNotEmpty) {
+          Placemark placemark = placemarks.first;
+          String newAddress = placemark.street!;
+          print('Address changed: $newAddress');
+
+          setState(() {
+            currentAddress = newAddress;
+          });
+
+          if (alwaysLookAtRedDot) {
+            // Always look at the red dot
+            mapController.move(currentMarkerPosition, mapController.zoom);
+          }
+        }
+      }).catchError((error) {
+        print("Error during reverse geocoding: $error");
+      });
+    });
+  }
+
+  void centerOnRedDot() {
+    mapController.move(
+        currentMarkerPosition, 18.0); // Adjust zoom level as needed
+  }
+
+  void toggleAlwaysLookAtRedDot() {
+    setState(() {
+      alwaysLookAtRedDot = !alwaysLookAtRedDot;
+      if (alwaysLookAtRedDot) {
+        // If toggled on, immediately look at the red dot
+        mapController.move(currentMarkerPosition, mapController.zoom);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.background,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: FutureBuilder<bool>(
-          future: getData(),
-          builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-            if (!snapshot.hasData) {
-              return const SizedBox();
-            } else {
-              return Stack(
-                children: <Widget>[
-                  tabBody,
-                  bottomBar(),
+    return Scaffold(
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: mapController,
+            options: const MapOptions(
+              initialCenter: LatLng(51.509364, -0.128928),
+              initialZoom: 15.0, // Adjust the initialZoom value as needed
+              maxZoom: 18.0,
+              minZoom: 3.0,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.app',
+              ),
+              MarkerLayer(markers: [
+                Marker(
+                  width: 50.0,
+                  height: 50.0,
+                  point: currentMarkerPosition,
+                  child: Image.asset(
+                    './assets/images/location.png', // Update the path
+                    width: 50.0,
+                    height: 50.0,
+                  ),
+                ),
+              ]),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.topEnd,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LiveFeedScreen(),
+                            ),
+                          );
+                        },
+                        child: Text('Live Traffic Feed'),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        currentAddress,
+                        style: TextStyle(fontSize: 18.0),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.center_focus_strong),
+                          onPressed: centerOnRedDot,
+                        ),
+                        IconButton(
+                          icon: Icon(alwaysLookAtRedDot
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: toggleAlwaysLookAtRedDot,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              );
-            }
-          },
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
-
-  Future<bool> getData() async {
-    await Future<dynamic>.delayed(const Duration(milliseconds: 200));
-    return true;
-  }
-
-  Widget bottomBar() {
-    return Column(
-      children: <Widget>[
-        const Expanded(
-          child: SizedBox(),
-        ),
-        BottomBarView(
-          tabIconsList: tabIconsList,
-          addClick: () {},
-          changeIndex: (int index) {
-            if (index == 0 || index == 2) {
-              animationController?.reverse().then<dynamic>((data) {
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  tabBody =
-                      MyDiaryScreen(animationController: animationController);
-                });
-              });
-            } else if (index == 1 || index == 3) {
-              animationController?.reverse().then<dynamic>((data) {
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  tabBody =
-                      //  TrainingScreen(animationController: animationController);
-                      MyDiaryScreen(animationController: animationController);
-                });
-              });
-            }
-          },
-        ),
-      ],
     );
   }
 }
