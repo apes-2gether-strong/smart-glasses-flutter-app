@@ -1,13 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:smart_glasses_flutter/src/screens/live_feed_screen.dart';
 
 import '../models/LocationData.dart';
+
+const mqttServer = '192.168.1.10';
+const mqttPort = 1883; // Default MQTT port
+final mqttClientIdentifier = generateRandomString();
+//const mqttUsername = 'your_username';
+//const mqttPassword = 'your_password';
+const mqttTopic = 'location';
+
+String generateRandomString() {
+  final random = Random.secure();
+  final values = List<int>.generate(16, (i) => random.nextInt(256));
+  return base64Url.encode(values);
+}
 
 class SmartGlassesAppHomeScreen extends StatefulWidget {
   @override
@@ -19,18 +36,18 @@ class _SmartGlassesAppHomeScreenState extends State<SmartGlassesAppHomeScreen>
     with TickerProviderStateMixin {
   MapController mapController = MapController();
   late StreamSubscription<LocationData> locationSubscription; // Add this line
-  MqttClient client =
-      MqttClient('broker.emqx.io', '123'); // Replace with your MQT
-  LatLng currentMarkerPosition = LatLng(51.509364, -0.128928);
+  MqttClient client = MqttServerClient(mqttServer,
+      mqttClientIdentifier); // Replace with your MQTT server details
+  LatLng currentMarkerPosition = LocationData.isiLocation;
   String currentAddress = ''; // Add this line
   bool alwaysLookAtRedDot = false;
 
   @override
   void initState() {
     super.initState();
-    locationSubscription = locationStream.listen((LocationData locationData) {
-      updateMap(locationData); // Update the map when a new location is received
-    });
+    // locationSubscription = locationStream.listen((LocationData locationData) {
+    //  updateMap(locationData); // Update the map when a new location is received
+    // });
     // Connect to the MQTT server and subscribe to a topic
     _connectToMqtt();
   }
@@ -42,12 +59,12 @@ class _SmartGlassesAppHomeScreenState extends State<SmartGlassesAppHomeScreen>
     client.onDisconnected = _onMqttDisconnected;
 
     final MqttConnectMessage connectMessage =
-        MqttConnectMessage().withClientIdentifier('your_client_id');
+        MqttConnectMessage().withClientIdentifier(mqttClientIdentifier);
 
     client.connectionMessage = connectMessage;
 
     try {
-      await client.connect('your_username', 'your_password');
+      await client.connect();
     } catch (e) {
       print('Exception: $e');
     }
@@ -55,11 +72,12 @@ class _SmartGlassesAppHomeScreenState extends State<SmartGlassesAppHomeScreen>
 
   void _onMqttConnected() {
     print('Connected to MQTT');
-    client.subscribe('your_topic', MqttQos.atMostOnce);
+    client.subscribe(mqttTopic, MqttQos.atMostOnce);
     client.updates?.listen((List<MqttReceivedMessage<MqttMessage>> c) {
       final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
       final String payload =
           MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+      print("Payload: $payload");
 
       // Parse the payload to get location data
       LocationData locationData = LocationData.fromPayload(payload);
@@ -138,7 +156,7 @@ class _SmartGlassesAppHomeScreenState extends State<SmartGlassesAppHomeScreen>
           FlutterMap(
             mapController: mapController,
             options: const MapOptions(
-              initialCenter: LatLng(51.509364, -0.128928),
+              initialCenter: LocationData.isiLocation,
               initialZoom: 15.0, // Adjust the initialZoom value as needed
               maxZoom: 18.0,
               minZoom: 3.0,

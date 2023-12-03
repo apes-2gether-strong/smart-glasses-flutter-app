@@ -1,6 +1,9 @@
+import 'package:latlong2/latlong.dart';
+
 class LocationData {
   final double latitude;
   final double longitude;
+  static const isiLocation = LatLng(36.8613660882078, 10.18895141238018);
 
   LocationData(this.latitude, this.longitude);
 
@@ -25,6 +28,6 @@ class LocationData {
     }
 
     // Return a default location if parsing fails
-    return LocationData(0.0, 0.0);
+    return LocationData(isiLocation.latitude, isiLocation.longitude);
   }
 }

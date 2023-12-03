@@ -1,31 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 
-class LiveFeedScreen extends StatelessWidget {
+class LiveFeedScreen extends StatefulWidget {
+  @override
+  _LiveFeedScreenState createState() => _LiveFeedScreenState();
+}
+
+class _LiveFeedScreenState extends State<LiveFeedScreen> {
+  late VlcPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = VlcPlayerController.network(
+      'rtsp://192.168.1.10:8554/', // Replace with your RTSP server address
+      hwAcc: HwAcc.disabled,
+      autoInitialize: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Second Screen'),
+        title: Text('Live Feed Screen'),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'This is the second screen',
-              style: TextStyle(fontSize: 18.0),
+            VlcPlayer(
+              aspectRatio: 16 / 9,
+              controller: _controller,
+              placeholder: Center(child: CircularProgressIndicator()),
             ),
             SizedBox(height: 20.0),
             ElevatedButton(
               onPressed: () {
-                // Navigate back to the tracking page
+                // Stop the video playback and dispose the controller when navigating back
+                _controller.stop();
+                _controller.dispose();
                 Navigator.pop(context);
               },
-              child: Text('Go Back to Tracking Page'),
+              child: Text('Stop and Go Back'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
