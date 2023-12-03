@@ -16,10 +16,11 @@ class _LiveFeedScreenState extends State<LiveFeedScreen> {
     super.initState();
 
     _controller = VlcPlayerController.network(
-      'rtsp://192.168.1.10:8554/', // Replace with your RTSP server address
-      hwAcc: HwAcc.disabled,
-      autoInitialize: true,
-    );
+        'rtsp://192.168.1.10:8554/', // Replace with your RTSP server address
+        hwAcc: HwAcc.full,
+        autoInitialize: true,
+        autoPlay: true,
+        options: VlcPlayerOptions());
   }
 
   @override

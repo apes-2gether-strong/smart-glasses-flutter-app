@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:smart_glasses_flutter/src/screens/home_screen.dart';
 
 Future<void> main() async {
