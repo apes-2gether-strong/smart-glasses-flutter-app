@@ -28,10 +28,10 @@ dependencies:
   media_kit_video: ^1.2.4
   mqtt_client: ^10.0.0
   supabase_flutter: ^1.10.23
-  rtsp_ffmpeg:
-    git:
-      url: "https://github.com/guildem/flutter_rtsp_ffmpeg.git"
-      ref: "flutter-3.3"
+  #rtsp_ffmpeg:
+  # git:
+  #  url: "https://github.com/guildem/flutter_rtsp_ffmpeg.git"
+  # ref: "flutter-3.3"
 
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 
+// ignore: use_key_in_widget_constructors
 class LiveFeedScreen extends StatefulWidget {
   @override
+  // ignore: library_private_types_in_public_api
   _LiveFeedScreenState createState() => _LiveFeedScreenState();
 }
 
@@ -24,7 +26,7 @@ class _LiveFeedScreenState extends State<LiveFeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Live Feed Screen'),
+        title: const Text('Live Feed Screen'),
       ),
       body: Center(
         child: Column(
@@ -33,9 +35,9 @@ class _LiveFeedScreenState extends State<LiveFeedScreen> {
             VlcPlayer(
               aspectRatio: 16 / 9,
               controller: _controller,
-              placeholder: Center(child: CircularProgressIndicator()),
+              placeholder: const Center(child: CircularProgressIndicator()),
             ),
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
             ElevatedButton(
               onPressed: () {
                 // Stop the video playback and dispose the controller when navigating back
@@ -43,7 +45,7 @@ class _LiveFeedScreenState extends State<LiveFeedScreen> {
                 _controller.dispose();
                 Navigator.pop(context);
               },
-              child: Text('Stop and Go Back'),
+              child: const Text('Stop and Go Back'),
             ),
           ],
         ),
