@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
 
       title: 'Smart glasses',
 
-      home: SmartGlassesAppHomeScreen(),
+      home: HomeScreen(),
     );
   }
 }

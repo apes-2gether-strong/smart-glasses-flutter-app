@@ -1,26 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 
-// ignore: use_key_in_widget_constructors
 class LiveFeedScreen extends StatefulWidget {
+  final String streamUrl;
+
+  // Constructor with a default value for streamUrl
+  LiveFeedScreen({this.streamUrl = 'rtsp://admin:admin@192.168.1.2:1935/'});
   @override
-  // ignore: library_private_types_in_public_api
   _LiveFeedScreenState createState() => _LiveFeedScreenState();
 }
 
 class _LiveFeedScreenState extends State<LiveFeedScreen> {
   late VlcPlayerController _controller;
+  bool isPlayerInitialized = true;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = VlcPlayerController.network(
-        'rtsp://192.168.1.10:8554/', // Replace with your RTSP server address
+    try {
+      _controller = VlcPlayerController.network(
+        widget.streamUrl,
         hwAcc: HwAcc.full,
         autoInitialize: true,
         autoPlay: true,
-        options: VlcPlayerOptions());
+        options: VlcPlayerOptions(),
+      );
+    } catch (e) {
+      // Handle the exception here
+      print('Error initializing VlcPlayerController: $e');
+      // You can show an error message to the user or take other actions
+    }
   }
 
   @override
@@ -33,15 +42,18 @@ class _LiveFeedScreenState extends State<LiveFeedScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 20.0),
             VlcPlayer(
               aspectRatio: 16 / 9,
               controller: _controller,
-              placeholder: const Center(child: CircularProgressIndicator()),
+              placeholder: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
+            const SizedBox(height: 20.0),
             const SizedBox(height: 20.0),
             ElevatedButton(
               onPressed: () {
-                // Stop the video playback and dispose the controller when navigating back
                 _controller.stop();
                 _controller.dispose();
                 Navigator.pop(context);
